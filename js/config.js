@@ -1,39 +1,28 @@
-// Canvases y contextos
-let canvasPrincipal, ctxPrincipal;
-let canvasFondo, ctxFondo;
-let canvasPelota, ctxPelota;
-let canvasReja, ctxReja;
+// Configuraciones del juego
+const CONFIG = {
+    // Configuración de la reja
+    grid: {
+        color: '#00ffff',
+        lineWidth: 2,
+        cellSize: 40, // Tamaño base de celda
+        padding: 20,  // Padding alrededor de la reja
+    },
+    
+    // Configuración de la pelota
+    ball: {
+        radius: 15,
+        color: '#ff00ff',
+        speed: 5,
+    },
+    
+    // Configuración del juego
+    game: {
+        fps: 60,
+        debug: true,
+    }
+};
 
-// Configuración general
-let configReja;
-let tiempo = 0;
-let tiempoJuego = 0;
-
-// Movimiento reja
-const amplitudX = 20;
-const amplitudY = 10;
-const velocidadX = 0.0025;
-const velocidadY = 0.0015;
-
-// Movimiento pelota
-let anguloPelota = 0;
-let anguloPelotaX = 0;
-let anguloPelotaY = 0;
-const velPelotaX = 0.002;
-const velPelotaY = 0.0016;
-const amplitudPelotaX = 60;
-const amplitudPelotaY = 40;
-
-// Pelota
-let centroPelotaX = 0;
-let centroPelotaY = 0;
-let radioPelota = 0;
-let forzarVisibilidad = false;
-
-// Lógica de visibilidad controlada
-let ultimaFaseVisible = false;
-let tiempoInicioFase = 0;
-let faseActual = "cubierta";
-let celdaDestino = null;
+// Exportar configuración
+window.CONFIG = CONFIG;
 
 // --- Fin del archivo config.js — 2025-05-01 10:42:00 GMT-3 — rev. 021 ---
