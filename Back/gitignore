@@ -11,21 +11,13 @@ ehthumbs.db
 .fseventsd
 ._*
 
-# Ignorar archivos md markdown
-*.md
-
-
-# Ignorar carpetas mias e backup
-Back*/
-
 # Ignorar carpetas ocultas comunes
 *.bak
 *.tmp
 *.swp
 
-# Ignorar carpetas de configuración de VS Code y Cursor
+# Ignorar carpetas de configuración de VS Code
 .vscode/
-.cursor/
 
 # Ignorar archivos de logs
 *.log
