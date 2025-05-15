@@ -15,7 +15,7 @@ ehthumbs.db
 *.md
 
 
-# Ignorar carpetas mias e backup
+# Ignorar carpetas mias de backup
 Back*/
 
 # Ignorar carpetas ocultas comunes

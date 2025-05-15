@@ -4,6 +4,7 @@ let canvasFondo, ctxFondo;
 let canvasBall, ctxBall;
 let canvasGrid, ctxGrid;
 let canvasEffects, ctxEffects;
+let canvasBorrador, ctxBorrador; // Nueva capa para depuración
 
 function initRenderer() {
     // Inicialización de canvas principal
@@ -26,6 +27,9 @@ function initRenderer() {
 
     canvasEffects = document.createElement("canvas");
     ctxEffects = canvasEffects.getContext("2d");
+
+    canvasBorrador = document.createElement("canvas"); // Crear canvasBorrador
+    ctxBorrador = canvasBorrador.getContext("2d");    // Obtener su contexto
 
     // Inicializar capa de efectos
     if (typeof initEffects === 'function') {
@@ -53,6 +57,8 @@ function initRenderer() {
     window.ctxGrid = ctxGrid;
     window.canvasEffects = canvasEffects;
     window.ctxEffects = ctxEffects;
+    window.canvasBorrador = canvasBorrador; // Exportar canvasBorrador
+    window.ctxBorrador = ctxBorrador;       // Exportar ctxBorrador
 
     ajustarCanvasYCapas();
 }
@@ -73,8 +79,8 @@ function ajustarCanvasYCapas() {
         return;
     }
 
-    // Ajustar tamaño de todos los canvas
-    for (const canvas of [canvasPrincipal, canvasFondo, canvasBall, canvasGrid, canvasEffects]) {
+    // Ajustar tamaño de todos los canvas, incluyendo canvasBorrador
+    for (const canvas of [canvasPrincipal, canvasFondo, canvasBall, canvasGrid, canvasEffects, canvasBorrador]) {
         if (canvas) {
             canvas.width = width;
             canvas.height = height;
@@ -96,6 +102,7 @@ function ajustarCanvasYCapas() {
     if (typeof dibujarBall === 'function') dibujarBall();
     if (typeof dibujarGrid === 'function') dibujarGrid();
     if (typeof dibujarEffects === 'function') dibujarEffects();
+    // No es necesario redibujar el contenido de borrador aquí, se maneja en game.js
 }
 
 function render() {
@@ -103,26 +110,45 @@ function render() {
     ctxPrincipal.clearRect(0, 0, canvasPrincipal.width, canvasPrincipal.height);
     ctxPrincipal.globalCompositeOperation = 'source-over';
 
-    // Actualizar y dibujar capas en orden (de atrás hacia adelante)
-    if (typeof dibujarFondo === 'function') dibujarFondo();
-    if (typeof dibujarBall === 'function') dibujarBall();
-    if (typeof dibujarGrid === 'function') dibujarGrid();
-    if (typeof dibujarEffects === 'function') dibujarEffects();
+    // 1. Actualizar y dibujar el Fondo
+    if (typeof dibujarFondo === 'function') {
+        dibujarFondo(); // Asegura que el fondo (estrellas, etc.) se actualice si es dinámico
+    }
+    // 2. Actualizar y dibujar la Pelota
+    // La posición de la pelota es actualizada por gameLoop -> actualizarPosicionBall -> dibujarBall.
+    // dibujarBall() ya se encarga de limpiar y redibujar ctxBall.
+    // Si la pelota tuviera animaciones propias independientes del movimiento, se llamarían aquí.
 
-    // Copiar capas al canvas principal
-    ctxPrincipal.drawImage(canvasFondo, 0, 0, canvasPrincipal.width, canvasPrincipal.height);    // 1. Fondo estrellado
-    ctxPrincipal.drawImage(canvasBall, 0, 0, canvasPrincipal.width, canvasPrincipal.height);     // 2. Pelota
-    ctxPrincipal.drawImage(canvasGrid, 0, 0, canvasPrincipal.width, canvasPrincipal.height);     // 3. Reja
-    ctxPrincipal.drawImage(canvasEffects, 0, 0, canvasPrincipal.width, canvasPrincipal.height);  // 4. Efectos y disparos
+    // 3. Actualizar y dibujar la Reja
+    if (typeof dibujarGrid === 'function') {
+        dibujarGrid(); // Esto llamará a gridMovement.update() y redibujará la reja en canvasGrid
+    }
 
-    // Solicitar siguiente frame
-    requestAnimationFrame(render);
+    // 4. Actualizar y dibujar Efectos
+    if (typeof dibujarEffects === 'function') {
+        dibujarEffects(); // Para cualquier efecto visual adicional
+    }
+
+    // 5. Capa de Borrador (actualizada por game.js)
+    // No necesita una llamada aquí ya que dibujarPuntoDestino en game.js maneja su contenido.
+
+    // Copiar capas al canvas principal en el orden deseado
+    ctxPrincipal.drawImage(canvasFondo, 0, 0, canvasPrincipal.width, canvasPrincipal.height);    // Capa 1: Fondo
+    ctxPrincipal.drawImage(canvasBall, 0, 0, canvasPrincipal.width, canvasPrincipal.height);     // Capa 2: Pelota
+    ctxPrincipal.drawImage(canvasGrid, 0, 0, canvasPrincipal.width, canvasPrincipal.height);     // Capa 3: Reja
+    ctxPrincipal.drawImage(canvasEffects, 0, 0, canvasPrincipal.width, canvasPrincipal.height);  // Capa 4: Efectos
+    ctxPrincipal.drawImage(canvasBorrador, 0, 0, canvasPrincipal.width, canvasPrincipal.height); // Capa 5: Borrador
+
+    // NO solicitar siguiente frame aquí. Será llamado por gameLoop en game.js.
+    // requestAnimationFrame(render);
 }
 
 // Event listeners
 window.addEventListener("DOMContentLoaded", () => {
     initRenderer();
-    render();
+    // La llamada inicial a render() o gameLoop() debe hacerse desde game.js o un punto central
+    // después de que todas las inicializaciones estén completas.
+    // Ya se comentó la llamada a render() aquí en un paso anterior, lo cual es correcto.
 });
 
 window.addEventListener("resize", () => {

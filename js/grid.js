@@ -120,4 +120,106 @@ function obtenerCelda(x, y) {
 // Exportar funciones necesarias
 window.dibujarGrid = dibujarGrid;
 window.obtenerCelda = obtenerCelda;
-window.initGrid = initGrid; 
+window.initGrid = initGrid;
+
+// === Sistema de coordenadas de reja ===
+
+// Determinar coordenadas de intersecciones (puntos cubiertos)
+function obtenerCoordenadasCubiertas() {
+    if (!configGrid) {
+        configGrid = calcularConfiguracionGrid(canvasGrid.width, canvasGrid.height);
+    }
+
+    const {
+        baseX,
+        baseY,
+        tamCuadrado,
+        cantidadHoriz,
+        cantidadVert
+    } = configGrid;
+
+    const offset = gridMovement.getCurrentOffset();
+    const coordenadasCubiertas = [];
+
+    // Generar todas las intersecciones de la reja
+    // Los índices i_idx y j_idx serán enteros de 0 en adelante para identificar la intersección
+    let i_idx = 0;
+    for (let i = 0.5; i <= cantidadVert + 0.5; i++, i_idx++) {
+        let j_idx = 0;
+        for (let j = 0.5; j <= cantidadHoriz + 0.5; j++, j_idx++) {
+            coordenadasCubiertas.push({
+                x: baseX + j * tamCuadrado + offset.x,
+                y: baseY + i * tamCuadrado + offset.y,
+                tipo: "interseccion",
+                // Usamos los iteradores originales i, j que definen la posición de la línea de la reja
+                // o podríamos usar i_idx, j_idx si preferimos índices basados en 0.
+                // Por simplicidad y consistencia con cómo se calculan, mantendremos i, j.
+                indiceInterseccion: { i_linea: i, j_linea: j } 
+            });
+        }
+    }
+    return coordenadasCubiertas;
+}
+
+// Determinar coordenadas de centros de celdas (puntos descubiertos)
+function obtenerCoordenadasDescubiertas() {
+    if (!configGrid) {
+        configGrid = calcularConfiguracionGrid(canvasGrid.width, canvasGrid.height);
+    }
+
+    const {
+        baseX,
+        baseY,
+        tamCuadrado,
+        cantidadHoriz,
+        cantidadVert
+    } = configGrid;
+
+    const offset = gridMovement.getCurrentOffset();
+    const coordenadasDescubiertas = [];
+
+    // Generar centros de todas las celdas
+    for (let i = 0; i < cantidadVert; i++) { // i es el índice de fila de la celda (0 a cantidadVert-1)
+        for (let j = 0; j < cantidadHoriz; j++) { // j es el índice de columna de la celda (0 a cantidadHoriz-1)
+            coordenadasDescubiertas.push({
+                x: baseX + (j + 1.0) * tamCuadrado + offset.x, // Revertido a +1.0 para el centro de la celda
+                y: baseY + (i + 1.0) * tamCuadrado + offset.y, // Revertido a +1.0 para el centro de la celda
+                tipo: "celda",
+                indiceCelda: {
+                    fila: i,
+                    columna: j
+                }
+            });
+        }
+    }
+    return coordenadasDescubiertas;
+}
+
+// Obtener coordenadas actualizadas para el centro de una celda
+function getCentroCeldaActualizado(indiceCelda) {
+    if (!configGrid || !indiceCelda) return null;
+    const { baseX, baseY, tamCuadrado } = configGrid;
+    const offset = gridMovement.getCurrentOffset();
+    return {
+        x: baseX + (indiceCelda.columna + 1.0) * tamCuadrado + offset.x, // Revertido a +1.0
+        y: baseY + (indiceCelda.fila + 1.0) * tamCuadrado + offset.y    // Revertido a +1.0
+    };
+}
+
+// Obtener coordenadas actualizadas para una intersección
+function getInterseccionActualizada(indiceInterseccion) {
+    if (!configGrid || !indiceInterseccion) return null;
+    const { baseX, baseY, tamCuadrado } = configGrid;
+    const offset = gridMovement.getCurrentOffset();
+    return {
+        // Usa los índices i_linea, j_linea almacenados, que corresponden a los multiplicadores de tamCuadrado
+        x: baseX + indiceInterseccion.j_linea * tamCuadrado + offset.x,
+        y: baseY + indiceInterseccion.i_linea * tamCuadrado + offset.y
+    };
+}
+
+// Exportar funciones de coordenadas
+window.obtenerCoordenadasCubiertas = obtenerCoordenadasCubiertas;
+window.obtenerCoordenadasDescubiertas = obtenerCoordenadasDescubiertas;
+window.getCentroCeldaActualizado = getCentroCeldaActualizado;
+window.getInterseccionActualizada = getInterseccionActualizada; 

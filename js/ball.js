@@ -16,8 +16,9 @@ function dibujarBall() {
     const radio = diametro / 2;
     radioPelota = radio;
     
-    centroPelotaX = canvasBall.width / 2;
-    centroPelotaY = canvasBall.height / 2;
+    // Usar las coordenadas actuales de la pelota en lugar del centro del canvas
+    centroPelotaX = posX;
+    centroPelotaY = posY;
     
     // Obtener el ángulo actual de rotación
     const anguloActual = ballMovement.updateRotation();
@@ -25,7 +26,7 @@ function dibujarBall() {
     // Guardar el estado actual del contexto
     ctxBall.save();
     
-    // Mover al centro de la pelota y rotar
+    // Mover a la posición actual de la pelota y rotar
     ctxBall.translate(centroPelotaX, centroPelotaY);
     ctxBall.rotate(anguloActual);
     
