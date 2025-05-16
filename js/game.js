@@ -13,6 +13,9 @@ let gameState = {
     frameCount: 0           // Contador de frames para debugging
 };
 
+// Exportar gameState al objeto window para que sea accesible desde otros módulos
+window.gameState = gameState;
+
 function initGame() {
     // Inicializar estado del juego
     gameState.isRunning = true;
@@ -45,6 +48,85 @@ function initGame() {
     // Iniciar bucle del juego unificado
     gameLoop();
 }
+
+// Función para reiniciar el juego
+function resetGame() {
+    console.log("Reiniciando juego...");
+    
+    // Detener el bucle del juego actual
+    gameState.isRunning = false;
+    
+    // Limpiar todos los disparos activos
+    if (window.shootingSystem) {
+        window.shootingSystem.shots = [];
+        
+        // Reiniciar el sistema de tiempo si la función está disponible
+        if (typeof window.resetGameTime === 'function') {
+            window.resetGameTime();
+        }
+    }
+    
+    // Pequeña pausa para asegurar que todo se detiene correctamente
+    setTimeout(() => {
+        // Reiniciar variables del juego
+        gameState.score = 0;
+        gameState.level = 1;
+        gameState.currentState = "covered";
+        gameState.stateTime = 0;
+        gameState.frameCount = 0;
+        
+        // Reiniciar posición de la pelota
+        const centerX = canvasBall.width / 2;
+        const centerY = canvasBall.height / 2;
+        ballMovement.config.currentPosition = { x: centerX, y: centerY };
+        actualizarPosicionBall(centerX, centerY);
+        
+        // Reiniciar el color de la pelota
+        if (typeof window.resetBallColor === 'function') {
+            window.resetBallColor();
+        }
+        
+        // Reiniciar sistemas relacionados
+        if (typeof window.ballMovement.resetMovement === 'function') {
+            window.ballMovement.resetMovement();
+        } else {
+            // Fallback si no existe la función específica
+            ballMovement.config.currentTarget = null;
+            ballMovement.config.timeAtDestination = 0;
+        }
+        
+        // Reiniciar dirección de movimiento de la pelota
+        if (window.ballMovement.config.direction) {
+            window.ballMovement.config.direction = { x: 0, y: 0 };
+        }
+        
+        // Actualizar la puntuación en pantalla
+        if (typeof window.updateScoreDisplay === 'function') {
+            window.updateScoreDisplay();
+        }
+        
+        // Iniciar el juego de nuevo
+        gameState.isRunning = true;
+        gameState.lastFrameTime = performance.now();
+        
+        // Seleccionar nuevo objetivo cubierto
+        const nuevoObjetivo = ballMovement.selectRandomCoveredTarget();
+        
+        if (window.IS_LOCAL_ENVIRONMENT && typeof setBorradorTargetPoint === 'function') {
+            if (nuevoObjetivo) {
+                setBorradorTargetPoint(nuevoObjetivo);
+            }
+        }
+        
+        // Reiniciar el loop
+        requestAnimationFrame(gameLoop);
+        
+        console.log("¡Juego reiniciado!");
+    }, 100);
+}
+
+// Exportar la función de reinicio
+window.resetGame = resetGame;
 
 function gameLoop() {
     if (!gameState.isRunning) return;
