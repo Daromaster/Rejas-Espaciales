@@ -136,6 +136,22 @@ function gameLoop() {
     gameState.lastFrameTime = currentTime;
     gameState.frameCount++;
 
+    // Actualizar métricas de rendimiento si está disponible el sistema
+    if (window.shootingSystem && window.shootingSystem.performanceMonitor) {
+        const perfMon = window.shootingSystem.performanceMonitor;
+        
+        // Actualizar datos del frame actual
+        const frameDelta = currentTime - perfMon.lastFrameTime;
+        perfMon.lastFrameTime = currentTime;
+        
+        // Calcular FPS actual y añadir al historial
+        const currentFPS = 1000 / frameDelta;
+        perfMon.frameRates.push(currentFPS);
+        if (perfMon.frameRates.length > perfMon.samplingSize) {
+            perfMon.frameRates.shift();
+        }
+    }
+
     // Solo incrementar el tiempo si la pelota está en el destino
     if (ballMovement.isAtDestination()) {
         gameState.stateTime += deltaTime; // Usar tiempo real en lugar de valor fijo

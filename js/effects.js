@@ -21,7 +21,17 @@ const shootingSystem = {
     gameStartTime: 0,           // Tiempo de inicio del juego
     gameTimer: null,            // Referencia al temporizador
     gameEnded: false,           // Indica si el juego ha terminado
-    activeParticles: []         // Array para almacenar todas las partículas activas
+    activeParticles: [],        // Array para almacenar todas las partículas activas
+    // Sistema de detección de rendimiento
+    performanceMonitor: {
+        frameRates: [],         // Historial de framerates recientes
+        lastFrameTime: 0,       // Tiempo del último frame para calcular FPS
+        lowPerformanceMode: false, // Indicador de modo de bajo rendimiento
+        frameRateThreshold: 45, // Umbral de FPS para considerar bajo rendimiento (menos de 45 FPS)
+        samplingSize: 60,       // Cantidad de muestras para promedio (1 segundo a 60fps)
+        checkInterval: 2000,    // Intervalo para comprobar rendimiento (ms)
+        lastCheckTime: 0,       // Último momento en que se comprobó el rendimiento
+    }
 };
 
 function initEffects() {
@@ -30,6 +40,10 @@ function initEffects() {
     
     // Detectar si es un dispositivo móvil
     shootingSystem.isMobile = detectMobileDevice();
+    
+    // Inicializar el monitor de rendimiento
+    shootingSystem.performanceMonitor.lastFrameTime = performance.now();
+    shootingSystem.performanceMonitor.lastCheckTime = performance.now();
     
     // Configurar listener para la tecla espacio (disparo)
     window.addEventListener('keydown', handleKeyDown);
@@ -48,6 +62,15 @@ function initEffects() {
     
     // Actualizar instrucciones según el dispositivo
     updateInstructions();
+    
+    // Ajustar la interfaz para dispositivos móviles
+    adjustUIForMobile();
+    
+    // Configurar detector de cambio de orientación
+    window.addEventListener('resize', function() {
+        // Esperar un momento para que se complete el cambio de tamaño
+        setTimeout(adjustUIForMobile, 300);
+    });
     
     // Reiniciar el sistema de disparos
     shootingSystem.isActive = false;
@@ -346,14 +369,27 @@ function checkAndAddPoints() {
         // Disparo fallido (pelota cubierta o en estado incierto)
         console.log("Disparo fallido. La pelota está cubierta o en estado incierto.");
         
+        // Determinar la penalización según el tiempo restante
+        let penalizacion = 5; // Valor por defecto (5 puntos)
+        
+        // Verificar si estamos en los últimos 30 segundos
+        const tiempoRestanteMs = getRemainingTime();
+        const tiempoRestanteSeg = tiempoRestanteMs / 1000;
+        
+        // Aumentar la penalización en los últimos 30 segundos
+        if (tiempoRestanteSeg <= 30) {
+            penalizacion = 10; // Aumentar a 10 puntos en los últimos 30 segundos
+            console.log("Penalización aumentada (últimos 30 segundos)");
+        }
+        
         // Penalizar solo si el jugador tiene más de 20 puntos
         if (window.gameState.score > 20) {
-            // Restar 5 puntos por disparo fallido
-            window.gameState.score -= 5;
-            console.log("Penalización: -5 puntos. Total: " + window.gameState.score);
+            // Restar puntos por disparo fallido
+            window.gameState.score -= penalizacion;
+            console.log(`Penalización: -${penalizacion} puntos. Total: ${window.gameState.score}`);
             
             // Mostrar efecto visual de puntos perdidos
-            showPointsEffect(ballPosition, -5, true);
+            showPointsEffect(ballPosition, -penalizacion, true);
             
             // Actualizar el marcador inmediatamente
             updateScoreDisplay();
@@ -378,6 +414,18 @@ function checkAndAddPoints() {
         // Mostrar efecto de partículas en el punto de impacto
         createParticleEffect(ballPosition);
     }
+}
+
+// Función auxiliar para obtener el tiempo restante en milisegundos
+function getRemainingTime() {
+    if (!shootingSystem.gameStarted || shootingSystem.gameEnded) return 60000; // Valor por defecto: 1 minuto
+    
+    const currentTime = Date.now();
+    const elapsedTime = currentTime - shootingSystem.gameStartTime;
+    const totalGameTime = 60 * 1000; // 1 minuto en milisegundos
+    const remainingTime = Math.max(0, totalGameTime - elapsedTime);
+    
+    return remainingTime;
 }
 
 // Mostrar un efecto visual para los puntos ganados o perdidos
@@ -500,6 +548,9 @@ function createShot() {
 function dibujarEffects() {
     // Limpiar canvas de efectos
     ctxEffects.clearRect(0, 0, canvasEffects.width, canvasEffects.height);
+    
+    // Actualizar métricas de rendimiento
+    updatePerformanceMetrics();
     
     // Verificar si hay disparos activos y dibujarlos
     const currentTime = performance.now();
@@ -692,8 +743,8 @@ function createTimeDisplay() {
         timeElement.style.zIndex = '1000';
         timeElement.style.textShadow = '1px 1px 2px #000';
         
-        // Contenido inicial
-        timeElement.textContent = 'Tiempo: 00:00.0';
+        // Contenido inicial - mostrar 1 minuto como tiempo inicial
+        timeElement.textContent = 'Tiempo: 01:00.0';
         
         // Añadir al DOM
         document.body.appendChild(timeElement);
@@ -717,16 +768,22 @@ function startGameTimer() {
     }
 }
 
-// Actualizar el tiempo del juego
+// Actualizar el tiempo del juego - ahora como cuenta regresiva
 function updateGameTime() {
     if (!shootingSystem.gameStarted || shootingSystem.gameEnded) return;
     
     const currentTime = Date.now();
     const elapsedTime = currentTime - shootingSystem.gameStartTime;
-    const elapsedSeconds = Math.floor(elapsedTime / 1000);
-    const minutes = Math.floor(elapsedSeconds / 60);
-    const seconds = elapsedSeconds % 60;
-    const deciseconds = Math.floor((elapsedTime % 1000) / 100); // Décimas de segundo
+    
+    // Calcular tiempo restante (1 minuto - tiempo transcurrido)
+    const totalGameTime = 60 * 1000; // 1 minuto en milisegundos
+    const remainingTime = Math.max(0, totalGameTime - elapsedTime);
+    
+    // Convertir a minutos, segundos y décimas
+    const remainingSeconds = Math.floor(remainingTime / 1000);
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = remainingSeconds % 60;
+    const deciseconds = Math.floor((remainingTime % 1000) / 100); // Décimas de segundo
     
     // Formatear el tiempo como MM:SS.d
     const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${deciseconds}`;
@@ -734,15 +791,29 @@ function updateGameTime() {
     // Actualizar el elemento de tiempo
     if (shootingSystem.timeDisplay) {
         shootingSystem.timeDisplay.textContent = 'Tiempo: ' + formattedTime;
+        
+        // Cambiar color cuando queda poco tiempo (menos de 10 segundos)
+        if (remainingTime <= 10000) {
+            shootingSystem.timeDisplay.style.color = 'rgba(255, 50, 50, 1)'; // Rojo para advertencia
+            
+            // Parpadeo en los últimos 5 segundos
+            if (remainingTime <= 5000) {
+                const blinkState = Math.floor(Date.now() / 500) % 2 === 0;
+                shootingSystem.timeDisplay.style.opacity = blinkState ? '1' : '0.5';
+            }
+        } else {
+            shootingSystem.timeDisplay.style.color = 'rgba(0, 255, 255, 1)'; // Color normal
+            shootingSystem.timeDisplay.style.opacity = '1';
+        }
     }
     
-    // Si llega a 1 minuto, detener el juego
-    if (minutes >= 1) {
+    // Si llega a 0, detener el juego
+    if (remainingTime <= 0) {
         endGame();
     }
 }
 
-// Finalizar el juego al llegar a 1 minuto
+// Finalizar el juego al llegar a 0
 function endGame() {
     if (shootingSystem.gameEnded) return;
     
@@ -753,6 +824,13 @@ function endGame() {
     if (shootingSystem.gameTimer) {
         clearInterval(shootingSystem.gameTimer);
         shootingSystem.gameTimer = null;
+    }
+    
+    // Asegurar que el tiempo muestre exactamente 00:00.0
+    if (shootingSystem.timeDisplay) {
+        shootingSystem.timeDisplay.textContent = 'Tiempo: 00:00.0';
+        shootingSystem.timeDisplay.style.color = 'rgba(255, 50, 50, 1)'; // Rojo para tiempo agotado
+        shootingSystem.timeDisplay.style.opacity = '1'; // Asegurar visibilidad
     }
     
     // Detener el juego
@@ -843,9 +921,11 @@ function resetGameTime() {
     shootingSystem.gameEnded = false;
     shootingSystem.gameStartTime = 0;
     
-    // Actualizar el display
+    // Actualizar el display a 1 minuto inicial
     if (shootingSystem.timeDisplay) {
-        shootingSystem.timeDisplay.textContent = 'Tiempo: 00:00.0';
+        shootingSystem.timeDisplay.textContent = 'Tiempo: 01:00.0';
+        shootingSystem.timeDisplay.style.color = 'rgba(0, 255, 255, 1)'; // Restaurar color original
+        shootingSystem.timeDisplay.style.opacity = '1'; // Restaurar opacidad
     }
     
     // Restaurar los botones a su estado original
@@ -887,16 +967,34 @@ function createParticleEffect(position) {
     const canvas = document.getElementById('canvas-juego');
     if (!canvas) return;
     
-    // Número total de partículas a crear
-    const particleCount = 30;
+    // Monitorear el rendimiento
+    updatePerformanceMetrics();
     
-    // Diferentes tipos de partículas para más variedad
-    const particleTypes = [
-        { type: 'chispa', count: 15 },      // Chispas pequeñas y rápidas
-        { type: 'metal', count: 7 },        // Fragmentos metálicos medianos
-        { type: 'brillo', count: 5 },       // Destellos brillantes
-        { type: 'humo', count: 3 }          // Pequeñas partículas de humo
-    ];
+    // Número total de partículas basado en el rendimiento
+    let particleCount;
+    let particleTypes;
+    
+    if (shootingSystem.performanceMonitor.lowPerformanceMode) {
+        // Modo de bajo rendimiento: menos partículas y tipos más simples
+        particleCount = 10; // Reducido desde 30
+        
+        particleTypes = [
+            { type: 'chispa', count: 7 },      // Reducido de 15 a 7
+            { type: 'metal', count: 3 }        // Reducido de 7 a 3, eliminados otros tipos
+        ];
+        
+        console.log("Usando sistema de partículas simplificado (modo bajo rendimiento)");
+    } else {
+        // Modo de rendimiento normal: sistema completo
+        particleCount = 30;
+        
+        particleTypes = [
+            { type: 'chispa', count: 15 },      // Chispas pequeñas y rápidas
+            { type: 'metal', count: 7 },        // Fragmentos metálicos medianos
+            { type: 'brillo', count: 5 },       // Destellos brillantes
+            { type: 'humo', count: 3 }          // Pequeñas partículas de humo
+        ];
+    }
     
     // Colores para las partículas
     const colors = {
@@ -944,17 +1042,20 @@ function createSingleParticle(position, type, typeColors) {
     // Propiedades según el tipo
     let size, speed, life, gravity, rotationSpeed, shape, hasTail, hasGlow, canBounce;
     
+    // Ajustar parámetros según el modo de rendimiento
+    const isLowPerformance = shootingSystem.performanceMonitor.lowPerformanceMode;
+    
     switch(type) {
         case 'chispa':
             // Chispas pequeñas y rápidas
             size = Math.random() * 2 + 1;                // 1-3px
             speed = Math.random() * 8 + 5;               // 5-13 velocidad
-            life = Math.random() * 30 + 60;              // 60-90 duración
+            life = isLowPerformance ? (Math.random() * 20 + 40) : (Math.random() * 30 + 60); // Vida más corta en modo bajo rendimiento
             gravity = 0.3;                               // Gravedad media
-            rotationSpeed = Math.random() * 12 - 6;      // Rotación rápida
+            rotationSpeed = isLowPerformance ? 0 : (Math.random() * 12 - 6); // Sin rotación en modo bajo rendimiento
             shape = 'circle';                            // Forma circular
-            hasTail = true;                              // Con estela
-            hasGlow = true;                              // Con brillo
+            hasTail = isLowPerformance ? false : true;   // Sin estela en modo bajo rendimiento
+            hasGlow = isLowPerformance ? false : true;   // Sin brillo en modo bajo rendimiento
             canBounce = false;                           // Sin rebote
             break;
             
@@ -962,13 +1063,13 @@ function createSingleParticle(position, type, typeColors) {
             // Fragmentos metálicos medianos
             size = Math.random() * 3 + 2;                // 2-5px
             speed = Math.random() * 5 + 3;               // 3-8 velocidad
-            life = Math.random() * 50 + 80;              // 80-130 duración
+            life = isLowPerformance ? (Math.random() * 30 + 50) : (Math.random() * 50 + 80); // Vida más corta en modo bajo rendimiento
             gravity = 0.4;                               // Gravedad alta
-            rotationSpeed = Math.random() * 6 - 3;       // Rotación media
-            shape = Math.random() > 0.5 ? 'triangle' : 'square'; // Forma variada
+            rotationSpeed = isLowPerformance ? 0 : (Math.random() * 6 - 3); // Sin rotación en modo bajo rendimiento
+            shape = isLowPerformance ? 'circle' : (Math.random() > 0.5 ? 'triangle' : 'square'); // Solo círculos en modo bajo rendimiento
             hasTail = false;                             // Sin estela
             hasGlow = false;                             // Sin brillo
-            canBounce = true;                            // Con rebote
+            canBounce = isLowPerformance ? false : true; // Sin rebote en modo bajo rendimiento
             break;
             
         case 'brillo':
@@ -1245,6 +1346,95 @@ function createImpactParticle(x, y) {
     };
     
     requestAnimationFrame(animateImpact);
+}
+
+// Nueva función: Actualizar las métricas de rendimiento
+function updatePerformanceMetrics() {
+    const perfMon = shootingSystem.performanceMonitor;
+    const now = performance.now();
+    
+    // Calcular el tiempo transcurrido desde el último frame
+    const deltaTime = now - perfMon.lastFrameTime;
+    perfMon.lastFrameTime = now;
+    
+    // Calcular FPS actual
+    const currentFPS = 1000 / deltaTime;
+    
+    // Añadir al historial (limitado al tamaño de muestreo)
+    perfMon.frameRates.push(currentFPS);
+    if (perfMon.frameRates.length > perfMon.samplingSize) {
+        perfMon.frameRates.shift();
+    }
+    
+    // Comprobar el rendimiento cada X milisegundos
+    if (now - perfMon.lastCheckTime > perfMon.checkInterval) {
+        perfMon.lastCheckTime = now;
+        
+        // Solo evaluar si tenemos suficientes muestras
+        if (perfMon.frameRates.length >= Math.min(30, perfMon.samplingSize / 2)) {
+            // Calcular el promedio de FPS
+            const avgFPS = perfMon.frameRates.reduce((sum, fps) => sum + fps, 0) / perfMon.frameRates.length;
+            
+            // Determinar si estamos en modo de bajo rendimiento
+            const newPerformanceMode = avgFPS < perfMon.frameRateThreshold;
+            
+            // Si hay un cambio de modo, registrarlo
+            if (newPerformanceMode !== perfMon.lowPerformanceMode) {
+                perfMon.lowPerformanceMode = newPerformanceMode;
+                console.log(`Cambiando a modo de ${newPerformanceMode ? 'bajo' : 'alto'} rendimiento. FPS promedio: ${avgFPS.toFixed(1)}`);
+            }
+        }
+    }
+}
+
+// Nueva función para ajustar la interfaz en dispositivos móviles
+function adjustUIForMobile() {
+    // Verificar si es un dispositivo móvil
+    const isMobile = shootingSystem.isMobile;
+    
+    // Obtener orientación actual del dispositivo
+    const isPortrait = window.innerHeight > window.innerWidth;
+    
+    // Referenciar los elementos de la interfaz
+    const header = document.getElementById('zona-superior');
+    const gameTitle = header ? header.querySelector('h1') : null;
+    
+    // Si no es un dispositivo móvil o no encontramos elementos, salir
+    if (!isMobile || !header || !gameTitle) {
+        return;
+    }
+    
+    // Ajustes específicos para modo vertical en móviles
+    if (isPortrait) {
+        console.log("Ajustando interfaz para móvil en modo vertical");
+        
+        // Reducir tamaño del título
+        gameTitle.style.fontSize = '1.2rem';
+        
+        // Ajustar posición de los contadores de puntos y tiempo
+        if (shootingSystem.scoreDisplay) {
+            shootingSystem.scoreDisplay.style.top = '40px';
+        }
+        
+        if (shootingSystem.timeDisplay) {
+            shootingSystem.timeDisplay.style.top = '40px';
+        }
+    } else {
+        // Restaurar estilos para modo horizontal
+        console.log("Ajustando interfaz para móvil en modo horizontal");
+        
+        // Restaurar tamaño del título
+        gameTitle.style.fontSize = '';
+        
+        // Restaurar posición de los contadores
+        if (shootingSystem.scoreDisplay) {
+            shootingSystem.scoreDisplay.style.top = '10px';
+        }
+        
+        if (shootingSystem.timeDisplay) {
+            shootingSystem.timeDisplay.style.top = '10px';
+        }
+    }
 }
 
 // Exportar funciones necesarias
