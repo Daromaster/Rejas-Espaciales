@@ -140,15 +140,23 @@ function gameLoop() {
     if (window.shootingSystem && window.shootingSystem.performanceMonitor) {
         const perfMon = window.shootingSystem.performanceMonitor;
         
-        // Actualizar datos del frame actual
-        const frameDelta = currentTime - perfMon.lastFrameTime;
-        perfMon.lastFrameTime = currentTime;
-        
-        // Calcular FPS actual y añadir al historial
-        const currentFPS = 1000 / frameDelta;
-        perfMon.frameRates.push(currentFPS);
-        if (perfMon.frameRates.length > perfMon.samplingSize) {
-            perfMon.frameRates.shift();
+        // Actualizar datos del frame actual para medición más precisa
+        if (typeof updatePerformanceMetrics === 'function') {
+            updatePerformanceMetrics();
+        } else {
+            // Método alternativo si la función específica no está disponible
+            const frameDelta = currentTime - perfMon.lastFrameTime;
+            perfMon.lastFrameTime = currentTime;
+            
+            // Verificar que el deltaTime no sea demasiado grande (por ejemplo, después de cambio de pestaña)
+            if (frameDelta < 100) {
+                // Calcular FPS actual y añadir al historial
+                const currentFPS = 1000 / frameDelta;
+                perfMon.frameRates.push(currentFPS);
+                if (perfMon.frameRates.length > perfMon.samplingSize) {
+                    perfMon.frameRates.shift();
+                }
+            }
         }
     }
 

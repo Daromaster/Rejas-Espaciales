@@ -27,10 +27,14 @@ const shootingSystem = {
         frameRates: [],         // Historial de framerates recientes
         lastFrameTime: 0,       // Tiempo del último frame para calcular FPS
         lowPerformanceMode: false, // Indicador de modo de bajo rendimiento
-        frameRateThreshold: 45, // Umbral de FPS para considerar bajo rendimiento (menos de 45 FPS)
-        samplingSize: 60,       // Cantidad de muestras para promedio (1 segundo a 60fps)
-        checkInterval: 2000,    // Intervalo para comprobar rendimiento (ms)
+        frameRateThreshold: 50, // Umbral de FPS para considerar bajo rendimiento (ahora más alto para ser más estrictos)
+        samplingSize: 30,       // Cantidad de muestras para promedio (reducido para decisiones más rápidas)
+        checkInterval: 1000,    // Intervalo para comprobar rendimiento (ms) - más frecuente
         lastCheckTime: 0,       // Último momento en que se comprobó el rendimiento
+        consecutiveLowFPS: 0,   // Contador de frames consecutivos con bajo FPS
+        forceCheckAfterShot: true, // Forzar comprobación después de cada disparo
+        debugElement: null,     // Elemento para mostrar información de debug (opcional)
+        performanceTestedOnMobile: false // Indica si ya hemos realizado un test inicial en móvil
     }
 };
 
@@ -41,9 +45,21 @@ function initEffects() {
     // Detectar si es un dispositivo móvil
     shootingSystem.isMobile = detectMobileDevice();
     
+    // En dispositivos móviles, activar modo de bajo rendimiento por defecto
+    // y luego comprobar si el dispositivo puede manejar el modo completo
+    if (shootingSystem.isMobile) {
+        console.log("Dispositivo móvil detectado - Activando modo de bajo rendimiento por defecto");
+        shootingSystem.performanceMonitor.lowPerformanceMode = true;
+    }
+    
     // Inicializar el monitor de rendimiento
     shootingSystem.performanceMonitor.lastFrameTime = performance.now();
     shootingSystem.performanceMonitor.lastCheckTime = performance.now();
+    
+    // Crear elemento de debug para FPS si estamos en entorno de desarrollo
+    if (window.IS_LOCAL_ENVIRONMENT) {
+        createPerformanceDebugDisplay();
+    }
     
     // Configurar listener para la tecla espacio (disparo)
     window.addEventListener('keydown', handleKeyDown);
@@ -86,6 +102,281 @@ function initEffects() {
         clearInterval(shootingSystem.gameTimer);
         shootingSystem.gameTimer = null;
     }
+    
+    // Realizar un test de rendimiento inicial (después de 2 segundos)
+    setTimeout(performInitialPerformanceTest, 2000);
+}
+
+// Función para crear un display de depuración de rendimiento
+function createPerformanceDebugDisplay() {
+    const debugElement = document.createElement('div');
+    debugElement.id = 'performance-debug';
+    
+    // Estilos
+    debugElement.style.position = 'absolute';
+    debugElement.style.bottom = '10px';
+    debugElement.style.left = '10px';
+    debugElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    debugElement.style.color = 'white';
+    debugElement.style.padding = '5px 10px';
+    debugElement.style.borderRadius = '5px';
+    debugElement.style.fontSize = '12px';
+    debugElement.style.fontFamily = 'monospace';
+    debugElement.style.zIndex = '9999';
+    
+    debugElement.textContent = 'FPS: -- | Modo: --';
+    
+    document.body.appendChild(debugElement);
+    shootingSystem.performanceMonitor.debugElement = debugElement;
+}
+
+// Función para realizar un test inicial de rendimiento
+function performInitialPerformanceTest() {
+    if (!shootingSystem.isMobile || shootingSystem.performanceMonitor.performanceTestedOnMobile) {
+        return;
+    }
+    
+    console.log("Realizando test inicial de rendimiento en dispositivo móvil...");
+    
+    // Guardar el estado actual de partículas para restaurarlo después
+    const previousParticleCount = 20;
+    const testDuration = 3000; // 3 segundos
+    const testPosition = {
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2
+    };
+    
+    // Crear un conjunto de partículas de prueba
+    createTestParticles(testPosition, previousParticleCount);
+    
+    // Iniciar la medición de rendimiento
+    const startTime = performance.now();
+    const frameRates = [];
+    let lastFrameTime = startTime;
+    let testFrame = 0;
+    
+    function measureFrame() {
+        testFrame++;
+        const now = performance.now();
+        const deltaTime = now - lastFrameTime;
+        lastFrameTime = now;
+        
+        // Calcular FPS actual
+        const currentFPS = 1000 / deltaTime;
+        frameRates.push(currentFPS);
+        
+        // Actualizar el visual de debug si existe
+        if (shootingSystem.performanceMonitor.debugElement) {
+            shootingSystem.performanceMonitor.debugElement.textContent = 
+                `Test FPS: ${currentFPS.toFixed(1)} | Frame: ${testFrame}`;
+        }
+        
+        // Continuar la prueba si no ha terminado
+        if (now - startTime < testDuration) {
+            requestAnimationFrame(measureFrame);
+        } else {
+            // La prueba ha terminado, analizar resultados
+            finalizePerformanceTest(frameRates);
+        }
+    }
+    
+    // Iniciar la medición
+    requestAnimationFrame(measureFrame);
+}
+
+// Crear partículas de prueba para el test de rendimiento
+function createTestParticles(position, count) {
+    // Crear partículas de diferentes tipos para simular carga real
+    const types = ['chispa', 'metal', 'brillo', 'humo'];
+    const colors = {
+        chispa: ['rgba(255, 215, 0, 0.9)'],
+        metal: ['rgba(192, 192, 192, 0.8)'],
+        brillo: ['rgba(255, 255, 224, 0.9)'],
+        humo: ['rgba(169, 169, 169, 0.3)']
+    };
+    
+    for (let i = 0; i < count; i++) {
+        const typeIndex = i % types.length;
+        createSingleParticle(position, types[typeIndex], colors[types[typeIndex]]);
+    }
+}
+
+// Finalizar el test de rendimiento y analizar resultados
+function finalizePerformanceTest(frameRates) {
+    // Descartar los primeros y últimos frames para mayor precisión
+    const trimmedFrames = frameRates.slice(5, -5);
+    
+    // Calcular el promedio de FPS
+    const avgFPS = trimmedFrames.reduce((sum, fps) => sum + fps, 0) / trimmedFrames.length;
+    
+    console.log(`Test de rendimiento completado. FPS promedio: ${avgFPS.toFixed(1)}`);
+    
+    // Determinar el modo basado en el resultado
+    const newPerformanceMode = avgFPS < shootingSystem.performanceMonitor.frameRateThreshold;
+    shootingSystem.performanceMonitor.lowPerformanceMode = newPerformanceMode;
+    
+    console.log(`Resultado del test: Modo de ${newPerformanceMode ? 'bajo' : 'alto'} rendimiento activado`);
+    
+    // Actualizar el visual de debug si existe
+    if (shootingSystem.performanceMonitor.debugElement) {
+        shootingSystem.performanceMonitor.debugElement.textContent = 
+            `FPS: ${avgFPS.toFixed(1)} | Modo: ${newPerformanceMode ? 'Bajo' : 'Alto'}`;
+    }
+    
+    // Marcar que ya hemos realizado el test inicial
+    shootingSystem.performanceMonitor.performanceTestedOnMobile = true;
+    
+    // Limpiar todas las partículas de prueba
+    clearAllParticles();
+}
+
+// Nueva función: Actualizar las métricas de rendimiento
+function updatePerformanceMetrics() {
+    const perfMon = shootingSystem.performanceMonitor;
+    const now = performance.now();
+    
+    // Calcular el tiempo transcurrido desde el último frame
+    const deltaTime = now - perfMon.lastFrameTime;
+    perfMon.lastFrameTime = now;
+    
+    // Evitar valores extremos que pueden ocurrir en pausas o cambios de pestaña
+    if (deltaTime > 100) {
+        return; // Saltar este frame si el deltaTime es demasiado grande
+    }
+    
+    // Calcular FPS actual
+    const currentFPS = 1000 / deltaTime;
+    
+    // Añadir al historial (limitado al tamaño de muestreo)
+    perfMon.frameRates.push(currentFPS);
+    if (perfMon.frameRates.length > perfMon.samplingSize) {
+        perfMon.frameRates.shift();
+    }
+    
+    // Actualizar el contador de frames consecutivos con bajo FPS
+    if (currentFPS < perfMon.frameRateThreshold) {
+        perfMon.consecutiveLowFPS++;
+    } else {
+        perfMon.consecutiveLowFPS = 0;
+    }
+    
+    // Si tenemos 5 frames consecutivos con bajo FPS, activar inmediatamente el modo bajo rendimiento
+    if (perfMon.consecutiveLowFPS >= 5 && !perfMon.lowPerformanceMode) {
+        perfMon.lowPerformanceMode = true;
+        console.log(`Activación inmediata de modo bajo rendimiento. FPS actual: ${currentFPS.toFixed(1)}`);
+        
+        // Limpiar partículas existentes para mejorar rendimiento inmediatamente
+        if (shootingSystem.activeParticles.length > 10) {
+            clearAllParticles();
+        }
+    }
+    
+    // Comprobar el rendimiento cada X milisegundos
+    if (now - perfMon.lastCheckTime > perfMon.checkInterval) {
+        perfMon.lastCheckTime = now;
+        
+        // Solo evaluar si tenemos suficientes muestras
+        if (perfMon.frameRates.length >= Math.min(10, perfMon.samplingSize / 2)) {
+            // Calcular el promedio de FPS
+            const avgFPS = perfMon.frameRates.reduce((sum, fps) => sum + fps, 0) / perfMon.frameRates.length;
+            
+            // Determinar si cambiamos el modo de rendimiento
+            // Usamos umbrales diferentes para activar/desactivar para evitar cambios constantes
+            let newPerformanceMode = perfMon.lowPerformanceMode;
+            
+            if (avgFPS < perfMon.frameRateThreshold - 5 && !perfMon.lowPerformanceMode) {
+                // Cambiar a modo bajo rendimiento si el FPS es menor al umbral - 5
+                newPerformanceMode = true;
+            } else if (avgFPS > perfMon.frameRateThreshold + 10 && perfMon.lowPerformanceMode) {
+                // Solo volver a alto rendimiento si supera el umbral por un buen margen (+10)
+                newPerformanceMode = false;
+            }
+            
+            // Si hay un cambio de modo, registrarlo
+            if (newPerformanceMode !== perfMon.lowPerformanceMode) {
+                perfMon.lowPerformanceMode = newPerformanceMode;
+                console.log(`Cambiando a modo de ${newPerformanceMode ? 'bajo' : 'alto'} rendimiento. FPS promedio: ${avgFPS.toFixed(1)}`);
+            }
+            
+            // Actualizar el visual de debug si existe
+            if (perfMon.debugElement) {
+                perfMon.debugElement.textContent = 
+                    `FPS: ${avgFPS.toFixed(1)} | Modo: ${newPerformanceMode ? 'Bajo' : 'Alto'}`;
+            }
+        }
+    }
+}
+
+// Crear un efecto de partículas cuando se dispara y se falla
+function createParticleEffect(position) {
+    if (!position) return;
+    
+    // Obtener el canvas y su contexto
+    const canvas = document.getElementById('canvas-juego');
+    if (!canvas) return;
+    
+    // Monitorear el rendimiento - forzar comprobación inmediata después de un disparo
+    if (shootingSystem.performanceMonitor.forceCheckAfterShot) {
+        shootingSystem.performanceMonitor.lastCheckTime = 0; // Forzar comprobación inmediata
+    }
+    updatePerformanceMetrics();
+    
+    // Número total de partículas basado en el rendimiento
+    let particleCount;
+    let particleTypes;
+    
+    if (shootingSystem.performanceMonitor.lowPerformanceMode) {
+        // Modo de bajo rendimiento: mucho menos partículas y tipos más simples
+        particleCount = 8; // Reducido aún más para dispositivos muy limitados
+        
+        particleTypes = [
+            { type: 'chispa', count: 5 },      // Reducido a solo 5 chispas
+            { type: 'metal', count: 3 }        // Y 3 fragmentos metálicos
+        ];
+        
+        console.log("Usando sistema de partículas simplificado (modo bajo rendimiento)");
+    } else {
+        // Modo de rendimiento normal: sistema completo
+        particleCount = 30;
+        
+        particleTypes = [
+            { type: 'chispa', count: 15 },      // Chispas pequeñas y rápidas
+            { type: 'metal', count: 7 },        // Fragmentos metálicos medianos
+            { type: 'brillo', count: 5 },       // Destellos brillantes
+            { type: 'humo', count: 3 }          // Pequeñas partículas de humo
+        ];
+    }
+    
+    // Colores para las partículas
+    const colors = {
+        chispa: [
+            'rgba(255, 215, 0, 0.9)',       // Dorado brillante
+            'rgba(255, 255, 255, 0.9)',     // Blanco brillante
+            'rgba(255, 140, 0, 0.9)'        // Naranja brillante
+        ],
+        metal: [
+            'rgba(192, 192, 192, 0.8)',     // Plata
+            'rgba(169, 169, 169, 0.8)',     // Gris oscuro
+            'rgba(105, 105, 105, 0.8)'      // Gris muy oscuro
+        ],
+        brillo: [
+            'rgba(255, 255, 224, 0.9)',     // Amarillo claro
+            'rgba(240, 230, 140, 0.9)',     // Caqui
+            'rgba(250, 250, 210, 0.9)'      // Amarillo pálido
+        ],
+        humo: [
+            'rgba(169, 169, 169, 0.3)',     // Gris oscuro transparente
+            'rgba(119, 136, 153, 0.3)',     // Gris pizarra claro
+            'rgba(211, 211, 211, 0.3)'      // Gris claro
+        ]
+    };
+    
+    // Crear diferentes tipos de partículas
+    particleTypes.forEach(particleType => {
+        for (let i = 0; i < particleType.count; i++) {
+            createSingleParticle(position, particleType.type, colors[particleType.type]);
+        }
+    });
 }
 
 // Detectar si es un dispositivo móvil
@@ -959,75 +1250,6 @@ function clearAllParticles() {
     console.log("Todas las partículas han sido eliminadas");
 }
 
-// Crear un efecto de partículas cuando se dispara y se falla
-function createParticleEffect(position) {
-    if (!position) return;
-    
-    // Obtener el canvas y su contexto
-    const canvas = document.getElementById('canvas-juego');
-    if (!canvas) return;
-    
-    // Monitorear el rendimiento
-    updatePerformanceMetrics();
-    
-    // Número total de partículas basado en el rendimiento
-    let particleCount;
-    let particleTypes;
-    
-    if (shootingSystem.performanceMonitor.lowPerformanceMode) {
-        // Modo de bajo rendimiento: menos partículas y tipos más simples
-        particleCount = 10; // Reducido desde 30
-        
-        particleTypes = [
-            { type: 'chispa', count: 7 },      // Reducido de 15 a 7
-            { type: 'metal', count: 3 }        // Reducido de 7 a 3, eliminados otros tipos
-        ];
-        
-        console.log("Usando sistema de partículas simplificado (modo bajo rendimiento)");
-    } else {
-        // Modo de rendimiento normal: sistema completo
-        particleCount = 30;
-        
-        particleTypes = [
-            { type: 'chispa', count: 15 },      // Chispas pequeñas y rápidas
-            { type: 'metal', count: 7 },        // Fragmentos metálicos medianos
-            { type: 'brillo', count: 5 },       // Destellos brillantes
-            { type: 'humo', count: 3 }          // Pequeñas partículas de humo
-        ];
-    }
-    
-    // Colores para las partículas
-    const colors = {
-        chispa: [
-            'rgba(255, 215, 0, 0.9)',       // Dorado brillante
-            'rgba(255, 255, 255, 0.9)',     // Blanco brillante
-            'rgba(255, 140, 0, 0.9)'        // Naranja brillante
-        ],
-        metal: [
-            'rgba(192, 192, 192, 0.8)',     // Plata
-            'rgba(169, 169, 169, 0.8)',     // Gris oscuro
-            'rgba(105, 105, 105, 0.8)'      // Gris muy oscuro
-        ],
-        brillo: [
-            'rgba(255, 255, 224, 0.9)',     // Amarillo claro
-            'rgba(240, 230, 140, 0.9)',     // Caqui
-            'rgba(250, 250, 210, 0.9)'      // Amarillo pálido
-        ],
-        humo: [
-            'rgba(169, 169, 169, 0.3)',     // Gris oscuro transparente
-            'rgba(119, 136, 153, 0.3)',     // Gris pizarra claro
-            'rgba(211, 211, 211, 0.3)'      // Gris claro
-        ]
-    };
-    
-    // Crear diferentes tipos de partículas
-    particleTypes.forEach(particleType => {
-        for (let i = 0; i < particleType.count; i++) {
-            createSingleParticle(position, particleType.type, colors[particleType.type]);
-        }
-    });
-}
-
 // Crear una única partícula con propiedades según su tipo
 function createSingleParticle(position, type, typeColors) {
     // Obtener el canvas
@@ -1346,45 +1568,6 @@ function createImpactParticle(x, y) {
     };
     
     requestAnimationFrame(animateImpact);
-}
-
-// Nueva función: Actualizar las métricas de rendimiento
-function updatePerformanceMetrics() {
-    const perfMon = shootingSystem.performanceMonitor;
-    const now = performance.now();
-    
-    // Calcular el tiempo transcurrido desde el último frame
-    const deltaTime = now - perfMon.lastFrameTime;
-    perfMon.lastFrameTime = now;
-    
-    // Calcular FPS actual
-    const currentFPS = 1000 / deltaTime;
-    
-    // Añadir al historial (limitado al tamaño de muestreo)
-    perfMon.frameRates.push(currentFPS);
-    if (perfMon.frameRates.length > perfMon.samplingSize) {
-        perfMon.frameRates.shift();
-    }
-    
-    // Comprobar el rendimiento cada X milisegundos
-    if (now - perfMon.lastCheckTime > perfMon.checkInterval) {
-        perfMon.lastCheckTime = now;
-        
-        // Solo evaluar si tenemos suficientes muestras
-        if (perfMon.frameRates.length >= Math.min(30, perfMon.samplingSize / 2)) {
-            // Calcular el promedio de FPS
-            const avgFPS = perfMon.frameRates.reduce((sum, fps) => sum + fps, 0) / perfMon.frameRates.length;
-            
-            // Determinar si estamos en modo de bajo rendimiento
-            const newPerformanceMode = avgFPS < perfMon.frameRateThreshold;
-            
-            // Si hay un cambio de modo, registrarlo
-            if (newPerformanceMode !== perfMon.lowPerformanceMode) {
-                perfMon.lowPerformanceMode = newPerformanceMode;
-                console.log(`Cambiando a modo de ${newPerformanceMode ? 'bajo' : 'alto'} rendimiento. FPS promedio: ${avgFPS.toFixed(1)}`);
-            }
-        }
-    }
 }
 
 // Nueva función para ajustar la interfaz en dispositivos móviles
