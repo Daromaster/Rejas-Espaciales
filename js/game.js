@@ -32,14 +32,11 @@ function initGame() {
     
     if (window.IS_LOCAL_ENVIRONMENT) { // Solo dibujar punto de depuración en entorno local
         if (primerObjetivoCubierto) {
-            dibujarPuntoDestino(primerObjetivoCubierto, "yellow");
-        } else {
-            console.error("No se pudo seleccionar un primer objetivo cubierto en initGame para depuración.");
-            if (ctxBorrador) ctxBorrador.clearRect(0, 0, canvasBorrador.width, canvasBorrador.height);
+            // Usar la nueva función del módulo borrador
+            if (typeof setBorradorTargetPoint === 'function') {
+                setBorradorTargetPoint(primerObjetivoCubierto);
+            }
         }
-    } else {
-        // En producción, asegurarse de que la capa de borrador esté limpia al inicio
-        if (ctxBorrador) ctxBorrador.clearRect(0, 0, canvasBorrador.width, canvasBorrador.height);
     }
     
     gameState.lastFrameTime = performance.now();
@@ -47,38 +44,6 @@ function initGame() {
     
     // Iniciar bucle del juego unificado
     gameLoop();
-}
-
-// Función para dibujar un punto de depuración en el canvasBorrador
-function dibujarPuntoDestino(targetInfo, color) {
-    // Verificar si estamos en entorno local y si hay un canvasBorrador
-    if (!window.IS_LOCAL_ENVIRONMENT || !ctxBorrador) {
-        if (ctxBorrador) ctxBorrador.clearRect(0, 0, canvasBorrador.width, canvasBorrador.height); // Limpiar si no es local
-        return; // No dibujar nada si no es local o no hay contexto
-    }
-
-    if (!targetInfo) {
-        ctxBorrador.clearRect(0, 0, canvasBorrador.width, canvasBorrador.height); // Limpiar si no hay target
-        return;
-    }
-
-    let puntoActualizado = null;
-    if (targetInfo.tipo === "celda" && typeof window.getCentroCeldaActualizado === 'function') {
-        puntoActualizado = window.getCentroCeldaActualizado(targetInfo.indiceCelda);
-    } else if (targetInfo.tipo === "interseccion" && typeof window.getInterseccionActualizada === 'function') {
-        puntoActualizado = window.getInterseccionActualizada(targetInfo.indiceInterseccion);
-    }
-
-    ctxBorrador.clearRect(0, 0, canvasBorrador.width, canvasBorrador.height); // Limpiar capa borrador siempre antes de dibujar
-
-    if (puntoActualizado) {
-        ctxBorrador.beginPath();
-        ctxBorrador.arc(puntoActualizado.x, puntoActualizado.y, 5, 0, 2 * Math.PI);
-        ctxBorrador.fillStyle = color;
-        ctxBorrador.fill();
-    } else {
-        // console.warn("No se pudo obtener la posición actualizada para el punto de depuración:", targetInfo);
-    }
 }
 
 function gameLoop() {
@@ -136,19 +101,6 @@ function gameLoop() {
         currentTargetForDebugging = ballMovement.config.currentTarget;
     }
     
-    // Dibujar el punto de depuración solo en entorno local
-    if (window.IS_LOCAL_ENVIRONMENT) {
-        if (currentTargetForDebugging) {
-            const color = gameState.currentState === "covered" ? "yellow" : "red";
-            dibujarPuntoDestino(currentTargetForDebugging, color);
-        } else {
-            if (ctxBorrador) ctxBorrador.clearRect(0, 0, canvasBorrador.width, canvasBorrador.height);
-        }
-    } else {
-        // En producción, asegurarse de que la capa de borrador esté siempre limpia
-        if (ctxBorrador) ctxBorrador.clearRect(0, 0, canvasBorrador.width, canvasBorrador.height);
-    }
-
     // Actualizar posición de la pelota según el estado
     let newPosition;
     
@@ -160,6 +112,30 @@ function gameLoop() {
 
     if (newPosition) {
         actualizarPosicionBall(newPosition.x, newPosition.y);
+        
+        // Detectar estado real de la pelota usando el detector
+        if (window.ballStateDetector) {
+            const detectedMathState = window.ballStateDetector.detectStateMathematically(newPosition);
+            const detectedPixelState = window.ballStateDetector.detectStateByPixels(newPosition);
+            const detectedState = window.ballStateDetector.detectState(newPosition);
+            
+            // Actualizar los indicadores de estado en la capa de borrador
+            if (typeof setBorradorStateIndicators === 'function') {
+                setBorradorStateIndicators(detectedMathState, detectedPixelState);
+            }
+            
+            // Opcional: log cada 60 frames para no saturar la consola
+            if (gameState.frameCount % 60 === 0) {
+                console.log(`Estado detectado: ${detectedState}`);
+            }
+        }
+    }
+    
+    // Actualizar punto de destino en la capa borrador (solo en entorno local)
+    if (window.IS_LOCAL_ENVIRONMENT && typeof setBorradorTargetPoint === 'function') {
+        if (currentTargetForDebugging) {
+            setBorradorTargetPoint(currentTargetForDebugging);
+        }
     }
     
     if (typeof render === 'function') {

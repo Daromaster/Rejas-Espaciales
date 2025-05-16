@@ -30,17 +30,20 @@ function dibujarBall() {
     ctxBall.translate(centroPelotaX, centroPelotaY);
     ctxBall.rotate(anguloActual);
     
-    const gradX = radio * 0.66;
-    const gradY = -radio * 0.33;
+    // Definir desplazamiento para el brillo (para dar efecto 3D)
+    const gradX = radio * 0.25;
+    const gradY = -radio * 0.25;
     
+    // Crear un gradiente radial desplazado para efecto de luz/sombra
     const grad = ctxBall.createRadialGradient(
-        gradX, gradY, 2,
-        0, 0, radio
+        gradX, gradY, 0,
+        gradX, gradY, radio * 2
     );
     
-    grad.addColorStop(0, "#ffaaaa");
-    grad.addColorStop(0.5, "#ff5050");
-    grad.addColorStop(1, "#800000");
+    // Definir colores del gradiente (del centro hacia afuera)
+    grad.addColorStop(0, "rgba(255, 170, 170, 1)"); // Color claro para el brillo
+    grad.addColorStop(0.5, "rgb(218, 28, 28)");  // Color intermedio
+    grad.addColorStop(1, "rgba(128, 0, 0, 1)");     // Color oscuro para el borde
     
     ctxBall.fillStyle = grad;
     ctxBall.beginPath();

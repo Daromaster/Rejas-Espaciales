@@ -62,9 +62,9 @@ function dibujarGrid() {
     for (let i = 0.5; i <= cantidadVert + 0.5; i++) {
         const y = baseY + i * tamCuadrado + offset.y;
         const grad = ctxGrid.createLinearGradient(0, y - grosorLinea/2, 0, y + grosorLinea/2);
-        grad.addColorStop(0, "#004050");
-        grad.addColorStop(0.5, "#00ffff");
-        grad.addColorStop(1, "#004050");
+        grad.addColorStop(0, "rgba(0, 64, 80, 1)");
+        grad.addColorStop(0.5, "rgba(0, 255, 255, 1)");
+        grad.addColorStop(1, "rgba(0, 64, 80, 1)");
         ctxGrid.strokeStyle = grad;
         ctxGrid.beginPath();
         ctxGrid.moveTo(baseX + offset.x, y);
@@ -76,9 +76,9 @@ function dibujarGrid() {
     for (let j = 0.5; j <= cantidadHoriz + 0.5; j++) {
         const x = baseX + j * tamCuadrado + offset.x;
         const grad = ctxGrid.createLinearGradient(x - grosorLinea/2, 0, x + grosorLinea/2, 0);
-        grad.addColorStop(0, "#004050");
-        grad.addColorStop(0.5, "#00ffff");
-        grad.addColorStop(1, "#004050");
+        grad.addColorStop(0, "rgba(0, 64, 80, 1)");
+        grad.addColorStop(0.5, "rgba(0, 255, 255, 1)");
+        grad.addColorStop(1, "rgba(0, 64, 80, 1)");
         ctxGrid.strokeStyle = grad;
         ctxGrid.beginPath();
         ctxGrid.moveTo(x, baseY + offset.y);
@@ -222,4 +222,107 @@ function getInterseccionActualizada(indiceInterseccion) {
 window.obtenerCoordenadasCubiertas = obtenerCoordenadasCubiertas;
 window.obtenerCoordenadasDescubiertas = obtenerCoordenadasDescubiertas;
 window.getCentroCeldaActualizado = getCentroCeldaActualizado;
-window.getInterseccionActualizada = getInterseccionActualizada; 
+window.getInterseccionActualizada = getInterseccionActualizada;
+
+// Funciones para el detector de estado de la pelota
+
+// Obtener la celda correspondiente a una posición
+function getCeldaFromPosition(position) {
+    if (!configGrid || !position) return null;
+    
+    const { baseX, baseY, tamCuadrado, cantidadHoriz, cantidadVert } = configGrid;
+    const offset = gridMovement.getCurrentOffset();
+    
+    // Calcular índices de celda
+    const col = Math.floor((position.x - baseX - offset.x) / tamCuadrado) - 1;
+    const row = Math.floor((position.y - baseY - offset.y) / tamCuadrado) - 1;
+    
+    // Verificar si los índices están dentro de los límites
+    if (col < 0 || col >= cantidadHoriz || row < 0 || row >= cantidadVert) {
+        return null;
+    }
+    
+    return {
+        fila: row,
+        columna: col
+    };
+}
+
+// Obtener el centro de una celda
+function getCentroCelda(celda) {
+    if (!configGrid || !celda) return null;
+    
+    const { baseX, baseY, tamCuadrado } = configGrid;
+    const offset = gridMovement.getCurrentOffset();
+    
+    return {
+        x: baseX + (celda.columna + 1.0) * tamCuadrado + offset.x,
+        y: baseY + (celda.fila + 1.0) * tamCuadrado + offset.y
+    };
+}
+
+// Obtener los barrotes que rodean una celda
+function getBarsFromCell(celda) {
+    if (!configGrid || !celda) return null;
+    
+    const { baseX, baseY, tamCuadrado, grosorLinea } = configGrid;
+    const offset = gridMovement.getCurrentOffset();
+    
+    // Calcular coordenadas de los barrotes
+    const barras = [];
+    
+    // Barra superior
+    barras.push({
+        start: {
+            x: baseX + (celda.columna + 0.5) * tamCuadrado + offset.x,
+            y: baseY + (celda.fila + 0.5) * tamCuadrado + offset.y
+        },
+        end: {
+            x: baseX + (celda.columna + 1.5) * tamCuadrado + offset.x,
+            y: baseY + (celda.fila + 0.5) * tamCuadrado + offset.y
+        }
+    });
+    
+    // Barra inferior
+    barras.push({
+        start: {
+            x: baseX + (celda.columna + 0.5) * tamCuadrado + offset.x,
+            y: baseY + (celda.fila + 1.5) * tamCuadrado + offset.y
+        },
+        end: {
+            x: baseX + (celda.columna + 1.5) * tamCuadrado + offset.x,
+            y: baseY + (celda.fila + 1.5) * tamCuadrado + offset.y
+        }
+    });
+    
+    // Barra izquierda
+    barras.push({
+        start: {
+            x: baseX + (celda.columna + 0.5) * tamCuadrado + offset.x,
+            y: baseY + (celda.fila + 0.5) * tamCuadrado + offset.y
+        },
+        end: {
+            x: baseX + (celda.columna + 0.5) * tamCuadrado + offset.x,
+            y: baseY + (celda.fila + 1.5) * tamCuadrado + offset.y
+        }
+    });
+    
+    // Barra derecha
+    barras.push({
+        start: {
+            x: baseX + (celda.columna + 1.5) * tamCuadrado + offset.x,
+            y: baseY + (celda.fila + 0.5) * tamCuadrado + offset.y
+        },
+        end: {
+            x: baseX + (celda.columna + 1.5) * tamCuadrado + offset.x,
+            y: baseY + (celda.fila + 1.5) * tamCuadrado + offset.y
+        }
+    });
+    
+    return barras;
+}
+
+// Exportar funciones para el detector de estado
+window.getCeldaFromPosition = getCeldaFromPosition;
+window.getCentroCelda = getCentroCelda;
+window.getBarsFromCell = getBarsFromCell; 

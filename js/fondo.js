@@ -44,8 +44,8 @@ function dibujarFondo() {
     // Limpiar el canvas
     ctxFondo.clearRect(0, 0, canvasFondo.width, canvasFondo.height);
     
-    // Dibujar fondo negro
-    ctxFondo.fillStyle = "#000000";
+    // Fondo negro
+    ctxFondo.fillStyle = "rgba(0, 0, 0, 1)";
     ctxFondo.fillRect(0, 0, canvasFondo.width, canvasFondo.height);
     
     // Actualizar parpadeo de estrellas
@@ -64,7 +64,7 @@ function dibujarFondo() {
     }
     
     // Dibujar estrellas
-    ctxFondo.fillStyle = "#ffffff";
+    ctxFondo.fillStyle = "rgba(255, 255, 255, 1)";
     for (const star of configFondo.stars) {
         ctxFondo.globalAlpha = star.brightness;
         ctxFondo.beginPath();

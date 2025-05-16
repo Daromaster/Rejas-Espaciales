@@ -2,7 +2,7 @@
 const CONFIG = {
     // Configuración de la reja
     grid: {
-        color: '#00ffff',
+        color: 'rgba(0, 255, 255, 1)',
         lineWidth: 2,
         cellSize: 40, // Tamaño base de celda
         padding: 20,  // Padding alrededor de la reja
@@ -11,7 +11,7 @@ const CONFIG = {
     // Configuración de la pelota
     ball: {
         radius: 15,
-        color: '#ff00ff',
+        color: 'rgba(255, 0, 255, 1)',
         speed: 5,
     },
     

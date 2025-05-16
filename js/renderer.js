@@ -45,6 +45,11 @@ function initRenderer() {
     if (typeof initFondo === 'function') {
         initFondo();
     }
+    
+    // Inicializar sistema de borrador
+    if (typeof initBorrador === 'function') {
+        initBorrador();
+    }
 
     // Exportar variables de canvas al scope global
     window.canvasPrincipal = canvasPrincipal;
@@ -129,8 +134,10 @@ function render() {
         dibujarEffects(); // Para cualquier efecto visual adicional
     }
 
-    // 5. Capa de Borrador (actualizada por game.js)
-    // No necesita una llamada aquí ya que dibujarPuntoDestino en game.js maneja su contenido.
+    // 5. Dibujar la capa de Borrador
+    if (typeof dibujarBorrador === 'function') {
+        dibujarBorrador(); // Maneja los elementos de depuración
+    }
 
     // Copiar capas al canvas principal en el orden deseado
     ctxPrincipal.drawImage(canvasFondo, 0, 0, canvasPrincipal.width, canvasPrincipal.height);    // Capa 1: Fondo
