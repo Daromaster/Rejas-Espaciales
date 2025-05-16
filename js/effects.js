@@ -11,19 +11,129 @@ const shootingSystem = {
     endColor: 'rgba(225, 0, 255,0.7)',        // Color rojo para el final del disparo
     shots: [],                  // Array para almacenar los disparos activos
     startWidth: 10,             // Ancho del disparo en el origen (10 píxeles)
-    endWidth: 2                 // Ancho del disparo en el destino (2 píxeles)
+    endWidth: 2,                // Ancho del disparo en el destino (2 píxeles)
+    shootButton: null,          // Referencia al botón de disparo
+    isMobile: false             // Indicador si es dispositivo móvil
 };
 
 function initEffects() {
     // Inicialización de efectos
     console.log("Sistema de efectos inicializado");
     
+    // Detectar si es un dispositivo móvil
+    shootingSystem.isMobile = detectMobileDevice();
+    
     // Configurar listener para la tecla espacio (disparo)
     window.addEventListener('keydown', handleKeyDown);
+    
+    // Crear y configurar el botón de disparo (para dispositivos táctiles)
+    createShootButton();
+    
+    // Actualizar instrucciones según el dispositivo
+    updateInstructions();
     
     // Reiniciar el sistema de disparos
     shootingSystem.isActive = false;
     shootingSystem.shots = [];
+}
+
+// Detectar si es un dispositivo móvil
+function detectMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window);
+}
+
+// Actualizar instrucciones según el dispositivo
+function updateInstructions() {
+    const zonaInferior = document.getElementById('zona-inferior');
+    if (zonaInferior) {
+        if (shootingSystem.isMobile) {
+            zonaInferior.innerHTML = '<p>Toca el botón <span style="color: #FF9500;">⚡</span> para Disparar</p>';
+        } else {
+            zonaInferior.innerHTML = '<p>Presiona <span style="background: #333; padding: 2px 5px; border-radius: 3px;">Space</span> para Disparar</p>';
+        }
+    }
+}
+
+// Crear y configurar el botón de disparo
+function createShootButton() {
+    // Crear el botón si no existe
+    if (!shootingSystem.shootButton) {
+        const shootButton = document.createElement('div');
+        shootButton.id = 'shoot-button';
+        
+        // Estilos del botón
+        shootButton.style.position = 'absolute';
+        shootButton.style.bottom = '5vh';
+        shootButton.style.right = '5vh';
+        shootButton.style.width = '15vmin';
+        shootButton.style.height = '15vmin';
+        shootButton.style.backgroundColor = 'rgba(255, 100, 0, 0.7)';
+        shootButton.style.borderRadius = '50%';
+        shootButton.style.display = 'flex';
+        shootButton.style.alignItems = 'center';
+        shootButton.style.justifyContent = 'center';
+        shootButton.style.cursor = 'pointer';
+        shootButton.style.zIndex = '1000';
+        
+        // Usar emoji o caracter unicode como alternativa
+        shootButton.innerHTML = '<span style="color: white; font-size: 24px; transform: rotate(45deg);">⚡</span>';
+        
+        // Mostrar etiqueta "Disparar" junto al botón en dispositivos móviles
+        if (shootingSystem.isMobile) {
+            const label = document.createElement('div');
+            label.style.position = 'absolute';
+            label.style.bottom = '12vh';
+            label.style.right = '5vh';
+            label.style.color = 'white';
+            label.style.fontWeight = 'bold';
+            label.style.textShadow = '0 0 5px #000';
+            label.style.zIndex = '1000';
+            label.innerHTML = 'Disparar';
+            document.body.appendChild(label);
+        }
+        
+        // Añadir eventos de toque/clic
+        shootButton.addEventListener('touchstart', handleShootButtonPress);
+        shootButton.addEventListener('mousedown', handleShootButtonPress);
+        
+        // Prevenir eventos predeterminados de los toques para evitar desplazamientos indeseados
+        shootButton.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+        
+        // Mostrar botón solo en móviles si la configuración lo prefiere
+        if (!shootingSystem.isMobile) {
+            shootButton.style.opacity = '0.3'; // Semi-transparente en PC
+        }
+        
+        // Añadir al DOM
+        document.body.appendChild(shootButton);
+        
+        // Guardar referencia
+        shootingSystem.shootButton = shootButton;
+    }
+}
+
+function handleShootButtonPress(event) {
+    // Prevenir comportamiento predeterminado
+    event.preventDefault();
+    
+    // Intentar disparar
+    tryToShoot();
+    
+    // Efecto visual al presionar
+    if (shootingSystem.shootButton) {
+        shootingSystem.shootButton.style.transform = 'scale(0.9)';
+        shootingSystem.shootButton.style.backgroundColor = 'rgba(255, 50, 0, 0.9)';
+        
+        // Restaurar después de un breve momento
+        setTimeout(function() {
+            shootingSystem.shootButton.style.transform = 'scale(1)';
+            shootingSystem.shootButton.style.backgroundColor = 'rgba(255, 100, 0, 0.7)';
+        }, 100);
+    }
+    
+    return false;
 }
 
 function handleKeyDown(event) {
